@@ -1,0 +1,22 @@
+:root{--enclosure:#d9dcd6;--panel:#f5f6f3;--panel-2:#eceee9;--ink:#23282c;
+--ink-soft:#5a6167;--line:#b6bcb4;--tag:#f5b301;--tag-ink:#1d1a10;--ok:#2f7d46;
+--err:#b23a2e;--mono:Consolas,'Cascadia Mono','Roboto Mono',ui-monospace,monospace;
+--sans:'Segoe UI',Roboto,system-ui,sans-serif;--r:4px}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--enclosure);color:var(--ink);font:15px/1.45 var(--sans)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--tag);outline-offset:1px}
+header{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 14px}
+.brand{font:600 12px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase}
+.rail{height:6px;border-bottom:1px solid var(--line);
+background:repeating-linear-gradient(90deg,#c7cbc4 0 6px,#d3d7d0 6px 12px)}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+padding:12px 14px;margin:12px 14px}
+.card h2{margin:0 0 8px;font:600 12px var(--mono);letter-spacing:.12em;
+text-transform:uppercase;color:var(--ink-soft)}
+.btn{border:1px solid var(--ink);background:var(--panel);border-radius:var(--r);
+padding:10px 14px;cursor:pointer;box-shadow:0 1px 0 var(--line)}
+.btn:active{transform:translateY(1px);box-shadow:none}
+.btn.pri{background:var(--tag);border-color:#8a6a00;color:var(--tag-ink);font-weight:700}
+.mono{font-family:var(--mono)} .soft{color:var(--ink-soft)}
+.ok{color:var(--ok)} .err{color:var(--err)}

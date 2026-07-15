@@ -1,0 +1,158 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d9dcd6"><title>Проводник · отправка</title>
+<style>%%STYLE%%
+body{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
+.order-row{display:flex;gap:8px;margin-top:10px}
+.field{display:flex;flex-direction:column;gap:3px;min-width:0}
+.field label{font-size:11.5px;color:var(--ink-soft)}
+.field input{border:1px solid var(--line);border-radius:var(--r);background:#fff;
+padding:10px;font-size:16px;min-width:0}
+#num{font-family:var(--mono);width:8ch;text-align:center}
+.grow{flex:1}
+.tags{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 2px;scrollbar-width:none}
+.tags::-webkit-scrollbar{display:none}
+.tag{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);
+border-radius:11px;padding:8px 14px;font:600 12px var(--mono);letter-spacing:.08em;
+text-transform:uppercase;cursor:pointer;position:relative}
+.tag.on{background:var(--tag);color:var(--tag-ink);border-color:#8a6a00;
+box-shadow:inset 0 0 0 1px #ffdf7e}
+.tag .cnt{position:absolute;top:-7px;right:-6px;min-width:19px;height:19px;
+border-radius:10px;background:var(--ink);color:#fff;font:600 11px/19px var(--mono);
+text-align:center;padding:0 4px;display:none}
+.tag.has .cnt{display:block}
+main{padding:8px 14px}
+.actions{display:flex;gap:8px;margin:6px 0 10px}
+.big{flex:1;border:1px solid var(--ink);background:var(--panel);border-radius:var(--r);
+padding:13px 8px;font-weight:600;box-shadow:0 1px 0 var(--line)}
+.list{list-style:none;margin:0;padding:0;font:12.5px var(--mono)}
+.list li{display:flex;gap:8px;align-items:center;padding:6px;border-radius:var(--r)}
+.list li:nth-child(odd){background:var(--panel-2)}
+.list img{width:42px;height:42px;object-fit:cover;border-radius:3px;border:1px solid var(--line)}
+.list .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list .x{border:0;background:none;color:var(--err);font-size:16px;padding:4px}
+.empty{color:var(--ink-soft);text-align:center;padding:24px 10px;
+border:1.5px dashed var(--line);border-radius:var(--r)}
+.bar{position:fixed;left:0;right:0;bottom:0;background:var(--panel);
+border-top:1px solid var(--line);display:flex;gap:10px;align-items:center;
+padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+#total{font:12.5px var(--mono);color:var(--ink-soft);flex:1}
+.send{border:1px solid #8a6a00;background:var(--tag);color:var(--tag-ink);
+border-radius:var(--r);padding:13px 18px;font-weight:700}
+.send:disabled{opacity:.45}
+#status{margin:0 14px 8px;font:12.5px var(--mono);color:var(--ink-soft);min-height:1.2em}
+#status.ok{color:var(--ok)}#status.err{color:var(--err)}
+</style></head><body>
+<header><div class="brand">Проводник · отправка на ПК</div>
+<div class="order-row">
+  <div class="field"><label for="num">№ заявки</label>
+    <input id="num" inputmode="numeric" placeholder="1024" list="orders" autocomplete="off"></div>
+  <div class="field grow"><label for="name">Наименование (для новой)</label>
+    <input id="name" placeholder="можно пусто" autocomplete="off"></div>
+</div><datalist id="orders"></datalist>
+</header><div class="rail"></div>
+<nav class="tags" id="tags"></nav>
+<main>
+<div class="actions">
+  <button class="big" id="camBtn">📷 Снять фото</button>
+  <button class="big" id="pickBtn">Из галереи / файлы</button>
+  <input id="camInput" type="file" accept="image/*" capture="environment" hidden>
+  <input id="pickInput" type="file" multiple hidden>
+</div>
+<ul class="list" id="list"></ul>
+<div class="empty" id="empty">Добавьте фото — при отправке они попадут
+в выбранную папку заявки на компьютере.</div>
+</main>
+<p id="status"></p>
+<div class="bar"><span id="total">файлов: 0</span>
+<button class="send" id="sendBtn" disabled>Отправить на компьютер</button></div>
+<script>
+const K=new URLSearchParams(location.search).get('k')||'';
+const $=id=>document.getElementById(id);
+let cats=[],active='',items=[],limitMb=500;   /* {file,cat,st:'wait|ok|err'} */
+function status(m,k){const s=$('status');s.textContent=m;s.className=k||'';}
+function renderTags(){
+  const box=$('tags');box.innerHTML='';
+  for(const c of cats){
+    const n=items.filter(i=>i.cat===c&&i.st!=='ok').length;
+    const b=document.createElement('button');
+    b.className='tag'+(c===active?' on':'')+(n?' has':'');
+    b.append(document.createTextNode(c));
+    const s=document.createElement('span');s.className='cnt';s.textContent=n;b.appendChild(s);
+    b.onclick=()=>{active=c;renderTags();};
+    box.appendChild(b);
+  }
+}
+function renderList(){
+  const ul=$('list');ul.innerHTML='';
+  $('empty').style.display=items.length?'none':'block';
+  for(const it of items){
+    const li=document.createElement('li');
+    if(it.file.type.startsWith('image/')){
+      const img=document.createElement('img');
+      it.url=it.url||URL.createObjectURL(it.file);img.src=it.url;li.appendChild(img);
+    }
+    const n=document.createElement('span');n.className='n';
+    n.textContent=it.cat+' / '+it.file.name;li.appendChild(n);
+    const st=document.createElement('span');
+    st.textContent=it.st==='ok'?'✓':it.st==='err'?'✗':'';
+    st.className=it.st==='ok'?'ok':it.st==='err'?'err':'';li.appendChild(st);
+    if(it.st!=='ok'){
+      const x=document.createElement('button');x.className='x';x.textContent='✕';
+      x.onclick=()=>{items=items.filter(v=>v!==it);renderAll();};li.appendChild(x);
+    }
+    ul.appendChild(li);
+  }
+}
+function renderAll(){renderTags();renderList();
+  const n=items.filter(i=>i.st!=='ok').length;
+  $('total').textContent='файлов: '+n;$('sendBtn').disabled=!n;}
+function add(files){
+  const big=[...files].filter(f=>f.size>limitMb*1048576);
+  for(const f of files)if(f.size<=limitMb*1048576)items.push({file:f,cat:active,st:'wait'});
+  renderAll();
+  if(big.length)status('Не добавлено (больше '+limitMb+' МБ): '+big.map(f=>f.name).join(', '),'err');
+  else status('Добавлено: '+files.length+' → «'+active+'»','ok');
+}
+async function send(){
+  const num=$('num').value.trim();
+  if(!num){status('Укажите номер заявки.','err');$('num').focus();return;}
+  const todo=items.filter(i=>i.st!=='ok');
+  $('sendBtn').disabled=true;let done=0,fail=0,lastErr='';
+  for(const it of todo){
+    status('Отправляю '+(done+fail+1)+' из '+todo.length+'…');
+    try{
+      const q='k='+encodeURIComponent(K)+'&num='+encodeURIComponent(num)+
+        '&name='+encodeURIComponent($('name').value.trim())+
+        '&cat='+encodeURIComponent(it.cat)+'&fn='+encodeURIComponent(it.file.name);
+      const r=await fetch('/api/upload?'+q,{method:'POST',body:it.file});
+      if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||('HTTP '+r.status));
+      it.st='ok';done++;
+    }catch(e){it.st='err';fail++;lastErr=e.message||'';}
+    renderAll();
+  }
+  status(fail?('Отправлено: '+done+', не дошло: '+fail+(lastErr?(' ('+lastErr+')'):'')+
+              ' — нажмите «Отправить» ещё раз.')
+             :('Готово! Отправлено на компьютер: '+done+'.'),fail?'err':'ok');
+  try{localStorage.setItem('num',num);localStorage.setItem('name',$('name').value);}catch(e){}
+}
+async function init(){
+  try{
+    const r=await fetch('/api/state?k='+encodeURIComponent(K));
+    if(r.status===403){status('Код доступа устарел — посмотрите QR на компьютере заново.','err');return;}
+    const d=await r.json();
+    cats=d.subfolders;active=cats.includes('Фото')?'Фото':cats[0];
+    limitMb=d.limit_mb||500;
+    const dl=$('orders');
+    for(const o of d.orders){const op=document.createElement('option');op.value=o.split(' - ')[0];op.label=o;dl.appendChild(op);}
+  }catch(e){cats=['Фото'];active='Фото';status('Нет связи с сервером на ПК.','err');}
+  try{$('num').value=localStorage.getItem('num')||'';$('name').value=localStorage.getItem('name')||'';}catch(e){}
+  renderAll();
+  $('camBtn').onclick=()=>$('camInput').click();
+  $('pickBtn').onclick=()=>$('pickInput').click();
+  $('camInput').onchange=e=>{add([...e.target.files]);e.target.value='';};
+  $('pickInput').onchange=e=>{add([...e.target.files]);e.target.value='';};
+  $('sendBtn').onclick=send;
+}
+init();
+</script></body></html>

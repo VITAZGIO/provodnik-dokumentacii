@@ -429,9 +429,5 @@ FodyWeavers.xsd
 *.msp
 
 # --- Provodnik ---
-# Chuzhoy binarnik cloudflared v repozitoriy ne kladem - on skachivaetsya otdelno,
-# sm. README. Sobrannye provodnik.exe i provodnik-pro.exe, naoborot, nuzhny v repo,
-# poetomu vyvedeny iz-pod obshchego pravila na *.exe nizhe (esli ono est).
-cloudflared.exe
+# Sobrannyy exe nuzhen v repozitorii - vyvodim ego iz-pod obshchego pravila na *.exe
 !provodnik.exe
-!provodnik-pro.exe

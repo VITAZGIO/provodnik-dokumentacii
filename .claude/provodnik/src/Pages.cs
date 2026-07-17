@@ -1,4 +1,4 @@
-// Страница телефона. HTML и CSS лежат отдельными файлами и вшиваются в exe при сборке
+// Страницы. HTML и CSS лежат отдельными файлами и вшиваются в exe при сборке
 // (см. build.bat, ключ /resource) — чтобы их было удобно править как обычную вёрстку.
 using System;
 using System.IO;
@@ -9,8 +9,17 @@ namespace Provodnik
 {
     static class Pages
     {
-        static string mobile;
+        static string admin, mobile;
 
+        /// <summary>Рабочее место на ПК — то, что открывается при запуске программы.</summary>
+        public static string Admin()
+        {
+            if (admin == null)
+                admin = Read("admin.html").Replace("%%STYLE%%", Read("style.css"));
+            return admin;
+        }
+
+        /// <summary>Страница телефона.</summary>
         public static string Mobile()
         {
             if (mobile == null)

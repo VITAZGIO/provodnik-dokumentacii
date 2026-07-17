@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Проводник документации</title>
+<style>%%STYLE%%
+  html,body{height:100%}
+  body{display:flex;flex-direction:column;min-height:100vh}
+  header{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .brand small{display:block;margin-top:4px;font:400 11px/1 var(--sans);
+    letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+  .spacer{flex:1}
+  .folder-chip{
+    display:flex;align-items:center;gap:8px;max-width:46ch;
+    border:1px solid var(--line);background:var(--panel-2);
+    border-radius:var(--r);padding:6px 10px;font-family:var(--mono);font-size:12.5px;
+  }
+  .folder-chip b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .folder-chip .dot{width:8px;height:8px;border-radius:50%;background:var(--err);flex:none}
+  .folder-chip.on .dot{background:var(--ok)}
+
+  main{flex:1;width:100%;max-width:1420px;margin:0 auto;padding:14px 16px 8px;
+    display:flex;flex-direction:column;gap:12px}
+  .card{margin:0}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:12px;color:var(--ink-soft)}
+  .field input,.field select{
+    border:1px solid var(--line);border-radius:var(--r);background:#fff;padding:8px 10px;min-width:0}
+  #orderNum{font-family:var(--mono);width:11ch;font-size:15px}
+  #orderName{width:min(46ch,60vw)}
+  #ordersSelect{font-family:var(--mono);min-width:34ch;max-width:56ch}
+  .btn.ghost{border-color:var(--line);color:var(--ink-soft)}
+  .btn:hover{background:#fff}
+  .btn:disabled{opacity:.45;cursor:default;transform:none}
+  .btn.danger{border-color:var(--err);color:var(--err);font-weight:600}
+  .btn.danger:hover{background:#fff2f0}
+
+  /* ---------- приём с телефона ---------- */
+  .phone{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  .qr{width:230px;background:#fff;border:1px solid #8a6a00;border-radius:8px;
+    padding:8px;box-shadow:inset 0 0 0 3px var(--tag);flex:none}
+  .qr img{display:block;width:100%;height:auto;image-rendering:pixelated}
+  .phone-side{flex:1;min-width:280px;display:flex;flex-direction:column;gap:8px}
+  .url{font:600 14px var(--mono);word-break:break-all;background:var(--panel-2);
+    border:1px solid var(--line);border-radius:var(--r);padding:8px 10px}
+  .steps{margin:0;padding-left:18px;color:var(--ink-soft);font-size:13px}
+  .steps li{margin:2px 0}
+  #ipRow input{font-family:var(--mono);flex:1;min-width:140px;
+    border:1px solid var(--line);border-radius:var(--r);padding:7px 9px}
+  #ipMsg{margin:0;font-size:12.5px;color:var(--ink-soft);min-height:1.2em}
+  #recent{list-style:none;margin:0;padding:0;font:12px var(--mono);
+    max-height:104px;overflow:auto;border:1px solid var(--line);border-radius:var(--r);
+    background:var(--panel-2)}
+  #recent li{padding:3px 6px}
+  #recent li+li{border-top:1px solid var(--line)}
+  #recent .empty{color:var(--ink-soft);font-family:var(--sans)}
+
+  #currentBar{display:none;align-items:center;gap:12px}
+  #currentBar.show{display:flex}
+  #currentName{font:600 16px var(--mono)}
+  #currentHint{color:var(--ink-soft);font-size:12.5px}
+
+  #cols{display:none;flex:1;min-height:300px;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  #cols.show{display:grid}
+  .col{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
+    display:flex;flex-direction:column;min-height:0;transition:box-shadow .12s,border-color .12s}
+  .col.drag{border-color:var(--tag);box-shadow:0 0 0 3px #f5b30155}
+  .tag{align-self:center;margin:10px 8px 6px;max-width:calc(100% - 16px);
+    background:var(--tag);color:var(--tag-ink);border:1px solid #8a6a00;border-radius:9px;
+    padding:5px 14px;font:600 12px var(--mono);letter-spacing:.1em;text-transform:uppercase;
+    text-align:center;box-shadow:inset 0 0 0 1px #ffdf7e,0 1px 1px #0002;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .drop{margin:2px 10px 8px;border:1.5px dashed var(--line);border-radius:var(--r);
+    color:var(--ink-soft);font-size:12px;text-align:center;padding:7px 6px}
+  .files{list-style:none;margin:0;padding:0 6px 6px;overflow:auto;flex:1;min-height:60px}
+  .files li{display:flex;align-items:center;gap:6px;font:12.5px var(--mono);
+    padding:4px 6px;border-radius:var(--r)}
+  .files li:nth-child(odd){background:var(--panel-2)}
+  .files li .n{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .files li .del{border:0;background:none;color:var(--ink-soft);cursor:pointer;
+    font-size:14px;line-height:1;padding:2px 5px;border-radius:var(--r)}
+  .files li .del:hover{color:var(--err);background:#fff}
+  .files .empty{color:var(--ink-soft);font-family:var(--sans);justify-content:center}
+  .col-foot{padding:8px;border-top:1px solid var(--line)}
+  .col-foot .btn{width:100%}
+
+  footer{background:var(--panel);border-top:1px solid var(--line);
+    padding:7px 16px;font:12.5px var(--mono);color:var(--ink-soft);
+    display:flex;gap:14px;align-items:center;position:sticky;bottom:0}
+  footer.ok{color:var(--ok)} footer.err{color:var(--err)}
+  #status{flex:1}
+
+  dialog{border:1px solid var(--ink);border-radius:var(--r);background:var(--panel);
+    max-width:560px;width:calc(100% - 40px);padding:18px}
+  dialog::backdrop{background:#23282c66}
+  dialog h3{margin:0 0 10px;font:600 13px var(--mono);letter-spacing:.12em;text-transform:uppercase}
+  dialog textarea{width:100%;height:150px;border:1px solid var(--line);border-radius:var(--r);
+    padding:8px;font-family:var(--mono);background:#fff;resize:vertical}
+  dialog .row{margin-top:12px;justify-content:flex-end}
+  #helpDlg p{margin:8px 0}
+  #helpDlg b{font-family:var(--mono)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">Проводник документации
+    <small>папки заявок и раскладка файлов</small>
+  </div>
+  <div class="spacer"></div>
+  <div class="folder-chip" id="folderChip" title="Рабочая папка">
+    <span class="dot"></span>
+    <span>Рабочая папка:</span><b id="folderName">не выбрана</b>
+  </div>
+  <button class="btn" id="pickBaseBtn">Выбрать…</button>
+  <button class="btn ghost" id="subfoldersBtn">Подпапки…</button>
+  <button class="btn ghost" id="helpBtn" title="Справка">?</button>
+</header>
+<div class="rail"></div>
+
+<main>
+  <div class="card">
+    <h2>Новая заявка</h2>
+    <div class="row">
+      <div class="field">
+        <label for="orderNum">Номер заявки</label>
+        <input id="orderNum" placeholder="1024" autocomplete="off">
+      </div>
+      <div class="field" style="flex:1">
+        <label for="orderName">Наименование изделия</label>
+        <input id="orderName" placeholder="Шкаф управления насосами" autocomplete="off">
+      </div>
+      <button class="btn pri" id="createBtn">Создать папки</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Существующие заявки</h2>
+    <div class="row">
+      <div class="field">
+        <label for="ordersSelect">Заявка (новые сверху)</label>
+        <select id="ordersSelect"></select>
+      </div>
+      <button class="btn" id="openBtn">Открыть</button>
+      <button class="btn ghost" id="refreshBtn">Обновить список</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Приём с телефона</h2>
+    <div class="phone">
+      <div class="qr"><img id="qrImg" alt="QR-код для телефона"></div>
+      <div class="phone-side">
+        <ol class="steps">
+          <li>Телефон — в той же Wi-Fi сети, что и этот компьютер.</li>
+          <li>Откройте камеру телефона и наведите на QR-код.</li>
+          <li>Номер заявки, категория, «Снять фото» → «Отправить».</li>
+        </ol>
+        <div class="url" id="phoneUrl">—</div>
+        <div class="row" id="ipRow">
+          <input id="ipInput" placeholder="192.168.3.81" list="adapters" autocomplete="off">
+          <datalist id="adapters"></datalist>
+          <button class="btn" id="ipSaveBtn">Сохранить</button>
+          <button class="btn ghost" id="ipAutoBtn">Авто</button>
+        </div>
+        <p id="ipMsg">Если QR не открывается — у компьютера несколько сетей.
+          Выберите адрес, который видит телефон.</p>
+        <ul id="recent"><li class="empty">файлов с телефона пока не было</li></ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="currentBar">
+    <span id="currentName"></span>
+    <span id="currentHint">перетащите файлы в нужную колонку или нажмите «Добавить файлы»</span>
+  </div>
+
+  <div id="cols"></div>
+</main>
+
+<footer>
+  <span id="status">Выберите рабочую папку, чтобы начать.</span>
+  <button class="btn danger" id="shutdownBtn">Выключить сервер</button>
+</footer>
+
+<dialog id="subfoldersDlg">
+  <h3>Подпапки заявки</h3>
+  <p style="margin:0 0 8px;color:var(--ink-soft)">По одной в строке. Применяется к новым и открываемым заявкам.</p>
+  <textarea id="subfoldersText" spellcheck="false"></textarea>
+  <div class="row">
+    <button class="btn ghost" id="subfoldersCancel">Отмена</button>
+    <button class="btn pri" id="subfoldersSave">Сохранить</button>
+  </div>
+</dialog>
+
+<dialog id="helpDlg">
+  <h3>Как пользоваться</h3>
+  <p><b>1.</b> Нажмите «Выбрать…» и укажите рабочую папку — там будут храниться папки заявок. Она запоминается между запусками.</p>
+  <p><b>2.</b> Введите номер заявки и наименование → «Создать папки». Появится папка «номер - наименование» с подпапками и колонки под каждую из них.</p>
+  <p><b>3.</b> Перетащите файлы (или целые папки) из Проводника прямо в нужную колонку, либо нажмите «Добавить файлы». При совпадении имён добавится « (1)», « (2)» — ничего не затирается.</p>
+  <p><b>4.</b> К заявке можно вернуться позже через список «Существующие заявки». Крестик у файла удаляет его из папки заявки.</p>
+  <p><b>5.</b> «Приём с телефона»: наведите камеру на QR-код — откроется страница отправки фото. Файлы лягут в папку заявки сразу, ничего перетаскивать не нужно. Заявка находится по номеру (часть имени до « - »), а если её ещё нет — создаётся.</p>
+  <p style="color:var(--ink-soft)">Файлы <b>копируются</b>, оригиналы остаются на месте. Программа работает, пока открыт её значок рядом с часами; закрытие этой вкладки ничего не останавливает.</p>
+  <div class="row"><button class="btn pri" id="helpClose">Понятно</button></div>
+</dialog>
+
+<script>
+/* ================== мелкие утилиты ================== */
+const $=id=>document.getElementById(id);
+const state={folder:"",subfolders:[],order:null,lists:{},busy:false};
+
+function sanitize(s){
+  return String(s).replace(/[<>:"/\\|?*]/g," ").replace(/\s+/g," ").trim().replace(/\.+$/,"");
+}
+function orderToken(s){
+  s=String(s).trim();
+  const i=s.indexOf(" - ");
+  return (i>0?s.slice(0,i):s).trim();
+}
+function status(msg,kind){
+  $("status").textContent=msg;
+  document.querySelector("footer").className=kind||"";
+}
+async function api(path,opts){
+  const r=await fetch(path,opts);
+  const text=await r.text();
+  let data={};
+  try{data=text?JSON.parse(text):{}}catch(e){}
+  if(!r.ok) throw new Error(data.error||("HTTP "+r.status));
+  return data;
+}
+
+/* ================== состояние с сервера ================== */
+async function refreshState(){
+  const d=await api("/api/admin/state");
+  state.folder=d.folder;
+  state.subfolders=d.subfolders;
+  $("folderName").textContent=d.folder||"не выбрана";
+  $("folderChip").classList.toggle("on",!!d.folder);
+  $("phoneUrl").textContent=d.phone_url;
+  if($("ipInput")!==document.activeElement) $("ipInput").value=d.ip_override||d.ip;
+  const dl=$("adapters");
+  dl.innerHTML="";
+  for(const a of d.adapters){
+    const o=document.createElement("option");
+    o.value=a.split("  —  ")[0]; o.label=a;
+    dl.appendChild(o);
+  }
+  renderOrders(d.orders);
+  renderRecent(d.recent);
+  return d;
+}
+function renderOrders(orders){
+  const sel=$("ordersSelect");
+  const keep=sel.value;
+  sel.innerHTML="";
+  const sorted=orders.slice().sort((a,b)=>b.localeCompare(a,"ru",{numeric:true,sensitivity:"base"}));
+  for(const name of sorted){
+    const o=document.createElement("option");
+    o.value=o.textContent=name;
+    sel.appendChild(o);
+  }
+  if(!sorted.length){
+    const o=document.createElement("option");
+    o.value=""; o.textContent="— заявок пока нет —";
+    sel.appendChild(o);
+  }
+  if(keep&&sorted.includes(keep)) sel.value=keep;
+}
+function renderRecent(items){
+  const ul=$("recent");
+  ul.innerHTML="";
+  if(!items.length){
+    const li=document.createElement("li");
+    li.className="empty"; li.textContent="файлов с телефона пока не было";
+    ul.appendChild(li); return;
+  }
+  for(const it of items){
+    const li=document.createElement("li");
+    li.textContent=it.time+"  "+it.order+" / "+it.cat+" / "+it.name;
+    ul.appendChild(li);
+  }
+}
+function refreshQr(){ $("qrImg").src="/api/admin/qr.png?t="+Date.now(); }
+
+/* ================== рабочая папка и настройки ================== */
+async function pickBase(){
+  await api("/api/admin/choose",{method:"POST"});
+  status("Выберите папку в открывшемся окне…");
+  const was=state.folder;
+  for(let i=0;i<600;i++){                        /* ждём, пока человек выберет */
+    await new Promise(r=>setTimeout(r,500));
+    const d=await refreshState();
+    if(d.folder&&d.folder!==was){
+      status("Рабочая папка: "+d.folder,"ok");
+      if(state.order) closeOrder();
+      return;
+    }
+  }
+}
+async function saveIp(){
+  const v=$("ipInput").value.trim();
+  if(!/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v)){
+    $("ipMsg").textContent="Это не похоже на IP-адрес (пример: 192.168.3.81).";
+    $("ipMsg").style.color="var(--err)"; return;
+  }
+  await api("/api/admin/ip",{method:"POST",body:v});
+  $("ipMsg").textContent="Сохранено — этот адрес будет использоваться и дальше.";
+  $("ipMsg").style.color="var(--ok)";
+  await refreshState(); refreshQr();
+}
+async function autoIp(){
+  await api("/api/admin/ip",{method:"POST",body:""});
+  $("ipMsg").textContent="Адрес снова определяется автоматически.";
+  $("ipMsg").style.color="var(--ink-soft)";
+  await refreshState(); refreshQr();
+}
+function openSubfoldersDlg(){
+  $("subfoldersText").value=state.subfolders.join("\n");
+  $("subfoldersDlg").showModal();
+}
+async function saveSubfolders(){
+  const body=$("subfoldersText").value;
+  try{
+    const d=await api("/api/admin/subfolders",{method:"POST",body});
+    state.subfolders=d.subfolders;
+    $("subfoldersDlg").close();
+    if(state.order){ await openOrder(state.order); }
+    status("Список подпапок сохранён.","ok");
+  }catch(e){ status("Не удалось сохранить подпапки: "+e.message,"err"); }
+}
+
+/* ================== заявки ================== */
+async function createOrder(){
+  const num=sanitize($("orderNum").value), name=sanitize($("orderName").value);
+  if(!num||!name){ status("Заполните номер заявки и наименование изделия.","err"); return; }
+  try{
+    const d=await api("/api/admin/order?num="+encodeURIComponent(num)+"&name="+encodeURIComponent(name),
+                      {method:"POST"});
+    await refreshState();
+    $("ordersSelect").value=d.name;
+    await openOrder(d.name);
+    status("Созданы папки: "+d.name,"ok");
+  }catch(e){ status("Не удалось создать папки: "+e.message,"err"); }
+}
+async function openSelected(){
+  const v=$("ordersSelect").value;
+  if(!v){ status("Выберите заявку из списка.","err"); return; }
+  await openOrder(v);
+  status("Открыта заявка: "+v,"ok");
+}
+async function openOrder(name){
+  state.order=name;
+  $("currentName").textContent=name;
+  $("currentBar").classList.add("show");
+  renderColumns();
+  await refreshAllLists();
+}
+function closeOrder(){
+  state.order=null;
+  $("currentBar").classList.remove("show");
+  $("cols").classList.remove("show");
+  $("cols").innerHTML="";
+}
+
+/* ================== колонки ================== */
+function renderColumns(){
+  const cols=$("cols");
+  cols.innerHTML=""; cols.classList.add("show");
+  state.lists={};
+  for(const sf of state.subfolders){
+    const col=document.createElement("section"); col.className="col";
+    col.innerHTML=
+      '<div class="tag"></div>'+
+      '<div class="drop">перетащите файлы сюда</div>'+
+      '<ul class="files"></ul>'+
+      '<div class="col-foot"><button class="btn" type="button">Добавить файлы</button>'+
+      '<input type="file" multiple hidden></div>';
+    col.querySelector(".tag").textContent=sf;
+    col.querySelector(".tag").title=sf;
+    const input=col.querySelector("input");
+    col.querySelector(".col-foot .btn").onclick=()=>input.click();
+    input.onchange=()=>{
+      if(input.files.length) upload(sf,[...input.files].map(f=>({file:f,rel:f.name})));
+      input.value="";
+    };
+    ["dragenter","dragover"].forEach(ev=>col.addEventListener(ev,e=>{
+      e.preventDefault(); col.classList.add("drag");
+    }));
+    ["dragleave","drop"].forEach(ev=>col.addEventListener(ev,()=>col.classList.remove("drag")));
+    col.addEventListener("drop",async e=>{
+      e.preventDefault();
+      const items=[...e.dataTransfer.items].filter(i=>i.kind==="file")
+        .map(i=>i.webkitGetAsEntry&&i.webkitGetAsEntry());
+      let picked;
+      if(items.every(Boolean)) picked=await collectEntries(items);   /* умеет папки целиком */
+      else picked=[...e.dataTransfer.files].map(f=>({file:f,rel:f.name}));
+      upload(sf,picked);
+    });
+    state.lists[sf]=col.querySelector(".files");
+    cols.appendChild(col);
+  }
+}
+/* разворачивает перетащенные папки в плоский список файлов с путями */
+async function collectEntries(entries,prefix){
+  prefix=prefix||"";
+  const out=[];
+  for(const entry of entries){
+    if(!entry) continue;
+    if(entry.isFile){
+      const file=await new Promise((res,rej)=>entry.file(res,rej));
+      out.push({file,rel:prefix+entry.name});
+    }else if(entry.isDirectory){
+      const reader=entry.createReader();
+      const kids=[];
+      for(;;){                                   /* readEntries отдаёт по частям */
+        const batch=await new Promise((res,rej)=>reader.readEntries(res,rej));
+        if(!batch.length) break;
+        kids.push(...batch);
+      }
+      out.push(...await collectEntries(kids,prefix+entry.name+"/"));
+    }
+  }
+  return out;
+}
+async function refreshAllLists(){ for(const sf of state.subfolders) await refreshList(sf); }
+async function refreshList(sf){
+  const ul=state.lists[sf]; if(!ul||!state.order) return;
+  ul.innerHTML="";
+  try{
+    const d=await api("/api/admin/files?order="+encodeURIComponent(state.order)+
+                      "&cat="+encodeURIComponent(sf));
+    if(!d.items.length){
+      const li=document.createElement("li");
+      li.className="empty"; li.textContent="пусто";
+      ul.appendChild(li); return;
+    }
+    for(const it of d.items){
+      const li=document.createElement("li");
+      const n=document.createElement("span");
+      n.className="n"; n.textContent=it.name+(it.dir?"/":""); n.title=it.name;
+      const del=document.createElement("button");
+      del.className="del"; del.textContent="✕"; del.title="Удалить из папки заявки";
+      del.onclick=()=>removeEntry(sf,it.name);
+      li.append(n,del); ul.appendChild(li);
+    }
+  }catch(e){ status("Не удалось прочитать «"+sf+"»: "+e.message,"err"); }
+}
+async function removeEntry(sf,name){
+  if(!confirm("Удалить «"+name+"» из папки «"+sf+"»?")) return;
+  try{
+    await api("/api/admin/delete?order="+encodeURIComponent(state.order)+
+              "&path="+encodeURIComponent(sf+"/"+name),{method:"POST"});
+    await refreshList(sf);
+    status("Удалено: "+name,"ok");
+  }catch(e){ status("Не удалось удалить: "+e.message,"err"); }
+}
+
+/* ================== отправка файлов на сервер ================== */
+async function upload(sf,picked){
+  if(!state.order||!picked.length) return;
+  if(state.busy){ status("Дождитесь окончания предыдущего копирования.","err"); return; }
+  state.busy=true;
+  let done=0,fail=0;
+  for(const {file,rel} of picked){
+    status("Копирую "+(done+fail+1)+" из "+picked.length+" → «"+sf+"»…");
+    try{
+      await api("/api/admin/upload?order="+encodeURIComponent(state.order)+
+                "&path="+encodeURIComponent(sf+"/"+rel),{method:"POST",body:file});
+      done++;
+    }catch(e){ fail++; }
+  }
+  state.busy=false;
+  await refreshList(sf);
+  status(fail?("Скопировано: "+done+", не удалось: "+fail+".")
+             :("Скопировано: "+done+" → «"+sf+"». Исходные файлы остались на месте."),
+         fail?"err":"ok");
+}
+
+/* ================== запуск ================== */
+async function init(){
+  $("pickBaseBtn").onclick=pickBase;
+  $("createBtn").onclick=createOrder;
+  $("openBtn").onclick=openSelected;
+  $("refreshBtn").onclick=async()=>{ await refreshState(); status("Список обновлён.","ok"); };
+  $("subfoldersBtn").onclick=openSubfoldersDlg;
+  $("subfoldersSave").onclick=saveSubfolders;
+  $("subfoldersCancel").onclick=()=>$("subfoldersDlg").close();
+  $("helpBtn").onclick=()=>$("helpDlg").showModal();
+  $("helpClose").onclick=()=>$("helpDlg").close();
+  $("ipSaveBtn").onclick=saveIp;
+  $("ipAutoBtn").onclick=autoIp;
+  $("orderNum").addEventListener("keydown",e=>{ if(e.key==="Enter") createOrder(); });
+  $("orderName").addEventListener("keydown",e=>{ if(e.key==="Enter") createOrder(); });
+  $("shutdownBtn").onclick=async()=>{
+    if(!confirm("Выключить сервер и закрыть программу?\n\n"+
+                "Телефон больше не сможет отправлять файлы, пока вы не запустите её снова.")) return;
+    try{ await api("/api/admin/shutdown",{method:"POST"}); }catch(e){}
+    document.body.innerHTML='<div class="card" style="margin:40px auto;max-width:420px;text-align:center">'+
+      'Сервер выключен. Эту вкладку можно закрыть.</div>';
+  };
+
+  refreshQr();
+  try{
+    const d=await refreshState();
+    status(d.folder?("Рабочая папка: "+d.folder):"Выберите рабочую папку, чтобы начать.",
+           d.folder?"ok":"");
+  }catch(e){ status("Нет связи с программой: "+e.message,"err"); }
+
+  /* фото с телефона приходят сами — подхватываем их без перезагрузки страницы */
+  let lastRecent="";
+  setInterval(async()=>{
+    if(state.busy) return;
+    try{
+      const d=await api("/api/admin/state");
+      renderRecent(d.recent);
+      const key=d.recent.length?(d.recent[0].time+d.recent[0].name):"";
+      if(key!==lastRecent){
+        lastRecent=key;
+        renderOrders(d.orders);
+        if(state.order&&d.recent.length&&d.recent[0].order===state.order) await refreshAllLists();
+      }
+    }catch(e){}
+  },2000);
+}
+init();
+</script>
+</body>
+</html>

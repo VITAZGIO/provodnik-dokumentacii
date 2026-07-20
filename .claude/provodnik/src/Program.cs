@@ -1,12 +1,8 @@
 // Точка входа.
 //
-// Программа — это локальный сервер плюс значок в трее. Рабочее место (создание заявок,
-// раскладка файлов по колонкам, QR для телефона) — страница, которую сервер отдаёт на
-// http://127.0.0.1:8765/ и которая открывается в браузере при запуске.
-//
-// Сервер слушает 0.0.0.0:8765 (если занят — следующий свободный до +10):
-//   • страница и всё управление — только с этого ПК (127.0.0.1);
-//   • страница телефона и приём файлов — по одноразовому коду в ссылке.
+// Программа — окно с папками заявок плюс маленький сервер для телефона.
+// Сервер слушает 8765 (если занят — следующий свободный до +10) на всех интерфейсах:
+// страница телефона и приём файлов отдаются только по одноразовому коду в ссылке.
 using System;
 using System.IO;
 using System.Threading;
@@ -16,10 +12,10 @@ namespace Provodnik
 {
     static class Program
     {
-        const string MutexName = "Provodnik.Server.SingleInstance";
-        const string ShowEventName = "Provodnik.Server.ShowWindow";
+        const string MutexName = "Provodnik.SingleInstance";
+        const string ShowEventName = "Provodnik.ShowWindow";
 
-        static TrayApp app;
+        static MainForm form;
 
         [STAThread]
         static void Main()
@@ -32,7 +28,7 @@ namespace Provodnik
             {
                 if (!created)
                 {
-                    // Программа уже работает. Не ругаемся, а открываем её страницу —
+                    // Программа уже работает. Не ругаемся, а показываем её окно —
                     // человек запустил ярлык именно затем, чтобы её увидеть.
                     try { EventWaitHandle.OpenExisting(ShowEventName).Set(); }
                     catch (Exception)
@@ -49,26 +45,27 @@ namespace Provodnik
                 try
                 {
                     server = Server.Start(8765, 10);
-                    Server.CurrentPort = server.Port;
                 }
                 catch (Exception e)
                 {
-                    MessageBox.Show("Не удалось запустить сервер:\n\n" + e.Message,
+                    MessageBox.Show("Не удалось запустить приём файлов с телефона:\n\n" + e.Message,
                                     "Проводник", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
 
-                app = new TrayApp(server);
+                form = new MainForm(server);
                 StartShowListener();
-                app.OpenPage();
-                Application.Run(app);
+                Application.Run(new TrayApp(form));
 
                 server.Stop();
                 State.CleanupParts();
             }
         }
 
-        /// <summary>Ждёт сигнала от второй копии и открывает страницу.</summary>
+        /// <summary>
+        /// Ждёт сигнала от второй копии. Само окно трогать отсюда нельзя — это чужой поток,
+        /// поэтому просто поднимаем флажок, а окно подхватит его своим таймером.
+        /// </summary>
         static void StartShowListener()
         {
             EventWaitHandle handle = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
@@ -77,8 +74,7 @@ namespace Provodnik
                 while (true)
                 {
                     handle.WaitOne();
-                    try { app.OpenPage(); }
-                    catch (Exception) { return; }
+                    State.ShowWindowRequested = true;
                 }
             });
             t.IsBackground = true;

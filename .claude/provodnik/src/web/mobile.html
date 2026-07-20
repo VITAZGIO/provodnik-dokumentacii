@@ -10,6 +10,12 @@ body{padding-bottom:calc(86px + env(safe-area-inset-bottom))}
 padding:10px;font-size:16px;min-width:0}
 #num{font-family:var(--mono);width:8ch;text-align:center}
 .grow{flex:1}
+/* заявка задана QR-кодом с компьютера — выбирать её на телефоне не нужно */
+.order-fixed{display:flex;align-items:baseline;gap:8px;margin-top:10px;
+padding:8px 10px;background:var(--tag);border:1px solid #8a6a00;border-radius:var(--r);
+color:var(--tag-ink)}
+.order-fixed .lbl{font:600 10.5px var(--mono);letter-spacing:.12em;text-transform:uppercase;opacity:.75}
+.order-fixed b{font:600 15px var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tags{display:flex;gap:8px;overflow-x:auto;padding:12px 14px 2px;scrollbar-width:none}
 .tags::-webkit-scrollbar{display:none}
 .tag{flex:none;border:1px solid var(--line);background:var(--panel);color:var(--ink-soft);
@@ -44,12 +50,15 @@ border-radius:var(--r);padding:13px 18px;font-weight:700}
 #status.ok{color:var(--ok)}#status.err{color:var(--err)}
 </style></head><body>
 <header><div class="brand">Проводник · отправка на ПК</div>
-<div class="order-row">
+<div class="order-row" id="orderRow">
   <div class="field"><label for="num">№ заявки</label>
     <input id="num" inputmode="numeric" placeholder="1024" list="orders" autocomplete="off"></div>
   <div class="field grow"><label for="name">Наименование (для новой)</label>
     <input id="name" placeholder="можно пусто" autocomplete="off"></div>
 </div><datalist id="orders"></datalist>
+<div class="order-fixed" id="orderFixed" hidden>
+  <span class="lbl">заявка</span><b id="orderFixedName"></b>
+</div>
 </header><div class="rail"></div>
 <nav class="tags" id="tags"></nav>
 <main>
@@ -67,7 +76,9 @@ border-radius:var(--r);padding:13px 18px;font-weight:700}
 <div class="bar"><span id="total">файлов: 0</span>
 <button class="send" id="sendBtn" disabled>Отправить на компьютер</button></div>
 <script>
-const K=new URLSearchParams(location.search).get('k')||'';
+const Q=new URLSearchParams(location.search);
+const K=Q.get('k')||'';
+const FIXED=Q.get('num')||'';        /* заявка задана QR-кодом — поля ввода не нужны */
 const $=id=>document.getElementById(id);
 let cats=[],active='',items=[],limitMb=500;   /* {file,cat,st:'wait|ok|err'} */
 function status(m,k){const s=$('status');s.textContent=m;s.className=k||'';}
@@ -115,7 +126,7 @@ function add(files){
   else status('Добавлено: '+files.length+' → «'+active+'»','ok');
 }
 async function send(){
-  const num=$('num').value.trim();
+  const num=FIXED||$('num').value.trim();
   if(!num){status('Укажите номер заявки.','err');$('num').focus();return;}
   const todo=items.filter(i=>i.st!=='ok');
   $('sendBtn').disabled=true;let done=0,fail=0,lastErr='';
@@ -123,7 +134,7 @@ async function send(){
     status('Отправляю '+(done+fail+1)+' из '+todo.length+'…');
     try{
       const q='k='+encodeURIComponent(K)+'&num='+encodeURIComponent(num)+
-        '&name='+encodeURIComponent($('name').value.trim())+
+        '&name='+encodeURIComponent(FIXED?'':$('name').value.trim())+
         '&cat='+encodeURIComponent(it.cat)+'&fn='+encodeURIComponent(it.file.name);
       const r=await fetch('/api/upload?'+q,{method:'POST',body:it.file});
       if(!r.ok)throw new Error((await r.json().catch(()=>({}))).error||('HTTP '+r.status));
@@ -134,7 +145,7 @@ async function send(){
   status(fail?('Отправлено: '+done+', не дошло: '+fail+(lastErr?(' ('+lastErr+')'):'')+
               ' — нажмите «Отправить» ещё раз.')
              :('Готово! Отправлено на компьютер: '+done+'.'),fail?'err':'ok');
-  try{localStorage.setItem('num',num);localStorage.setItem('name',$('name').value);}catch(e){}
+  if(!FIXED){try{localStorage.setItem('num',num);localStorage.setItem('name',$('name').value);}catch(e){}}
 }
 async function init(){
   try{
@@ -145,8 +156,22 @@ async function init(){
     limitMb=d.limit_mb||500;
     const dl=$('orders');
     for(const o of d.orders){const op=document.createElement('option');op.value=o.split(' - ')[0];op.label=o;dl.appendChild(op);}
+    if(FIXED){
+      /* заявку выбрали на компьютере — показываем её и убираем поля ввода */
+      const full=d.orders.find(o=>o.split(' - ')[0].trim()===FIXED)||FIXED;
+      $('orderFixedName').textContent=full;
+      $('orderFixed').hidden=false;
+      $('orderRow').hidden=true;
+      $('empty').textContent='Добавьте фото — они попадут в заявку «'+full+'» на компьютере.';
+    }
   }catch(e){cats=['Фото'];active='Фото';status('Нет связи с сервером на ПК.','err');}
-  try{$('num').value=localStorage.getItem('num')||'';$('name').value=localStorage.getItem('name')||'';}catch(e){}
+  if(FIXED){
+    $('orderFixedName').textContent=$('orderFixedName').textContent||FIXED;
+    $('orderFixed').hidden=false;
+    $('orderRow').hidden=true;
+  }else{
+    try{$('num').value=localStorage.getItem('num')||'';$('name').value=localStorage.getItem('name')||'';}catch(e){}
+  }
   renderAll();
   $('camBtn').onclick=()=>$('camInput').click();
   $('pickBtn').onclick=()=>$('pickInput').click();

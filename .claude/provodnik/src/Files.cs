@@ -52,6 +52,45 @@ namespace Provodnik
             return Path.GetFileName(dir);
         }
 
+        /// <summary>
+        /// Под какие подпапки показывать колонки: настроенные плюс те, что уже лежат
+        /// в самой заявке. Иначе файлы, разложенные раньше по другим папкам (или другой
+        /// версией программы), были бы не видны — человек решил бы, что их нет.
+        /// </summary>
+        public static List<string> ColumnsFor(string orderName)
+        {
+            List<string> result = new List<string>(Config.Subfolders);
+            try
+            {
+                string dir = OrderPath(orderName);
+                if (Directory.Exists(dir))
+                {
+                    List<string> extra = new List<string>();
+                    foreach (string d in Directory.GetDirectories(dir))
+                    {
+                        string name = Path.GetFileName(d);
+                        if (!result.Contains(name)) extra.Add(name);
+                    }
+                    extra.Sort(StringComparer.OrdinalIgnoreCase);
+                    result.AddRange(extra);
+                }
+            }
+            catch (Exception) { }
+            return result;
+        }
+
+        /// <summary>Сколько файлов лежит в подпапке — для подписи на колонке.</summary>
+        public static int CountFiles(string orderName, string cat)
+        {
+            try
+            {
+                string dir = Path.Combine(OrderPath(orderName), Util.Sanitize(cat));
+                if (!Directory.Exists(dir)) return 0;
+                return Directory.GetFiles(dir, "*", SearchOption.AllDirectories).Length;
+            }
+            catch (Exception) { return 0; }
+        }
+
         public static void EnsureSubfolders(string orderDir)
         {
             foreach (string sf in Config.Subfolders)

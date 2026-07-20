@@ -29,7 +29,11 @@ namespace Provodnik
 
         string currentOrder;
         readonly List<ColumnPanel> columns = new List<ColumnPanel>();
+        readonly List<string> columnNames = new List<string>();   // подпапки открытой заявки
         bool busy;
+        string lastQrUrl;
+        Panel qrFrame;
+        Label qrOrderLabel;
 
         // Раскладка блоков внутри карточек считается вручную, поэтому её нужно применить
         // и при первом показе окна, а не только при изменении размера.
@@ -48,6 +52,7 @@ namespace Provodnik
             try { Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch (Exception) { }
 
             BuildUi();
+            Prettify(this);
             ApplyLayout();
 
             State.FileReceived += OnFileReceived;
@@ -265,6 +270,8 @@ namespace Provodnik
             ordersBox.DropDownStyle = ComboBoxStyle.DropDownList;
             ordersBox.SetBounds(12, 50, 380, 26);
             ordersBox.Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right;
+            // выбрали заявку — QR тут же перестроился под неё
+            ordersBox.SelectedIndexChanged += delegate { if (currentOrder == null) RefreshQr(); };
             existing.Controls.Add(ordersBox);
 
             openButton = new Button();
@@ -303,10 +310,16 @@ namespace Provodnik
             card.Anchor = AnchorStyles.Top | AnchorStyles.Right;
             parent.Controls.Add(card);
 
-            Panel qrFrame = new Panel();
+            qrFrame = new Panel();
             qrFrame.SetBounds(12, 30, 190, 190);
             qrFrame.BackColor = Theme.Tag;
             card.Controls.Add(qrFrame);
+
+            qrOrderLabel = new Label();
+            qrOrderLabel.Font = Theme.Small;
+            qrOrderLabel.ForeColor = Theme.InkSoft;
+            qrOrderLabel.SetBounds(12, 224, 190, 46);
+            card.Controls.Add(qrOrderLabel);
 
             qrImage = new PictureBox();
             qrImage.SetBounds(3, 3, 184, 184);
@@ -364,14 +377,17 @@ namespace Provodnik
             ipMsg.SetBounds(212, 200, cardW - 224, 32);
             card.Controls.Add(ipMsg);
 
-            card.Controls.Add(Small("Принято с телефона", 12, 228));
+            // журнал принятого — в правой колонке, под настройкой адреса:
+            // под QR-кодом место занято подписью, какой заявке этот код принадлежит
+            card.Controls.Add(Small("Принято с телефона", 212, 236));
             recentList = new ListBox();
             recentList.Font = Theme.MonoSmall;
             recentList.BorderStyle = BorderStyle.FixedSingle;
             recentList.BackColor = Theme.Panel2;
             recentList.IntegralHeight = false;
             recentList.HorizontalScrollbar = true;
-            recentList.SetBounds(12, 246, cardW - 24, 54);
+            recentList.SelectionMode = SelectionMode.None;   // это журнал, а не список для выбора
+            recentList.SetBounds(212, 254, cardW - 224, 46);
             card.Controls.Add(recentList);
 
             Action layout = delegate
@@ -380,6 +396,28 @@ namespace Provodnik
             };
             parent.Resize += delegate { layout(); };
             layouts.Add(layout);
+        }
+
+        /// <summary>Одинаково оживляет все обычные кнопки окна, чтобы не повторять это у каждой.</summary>
+        void Prettify(Control root)
+        {
+            foreach (Control c in root.Controls)
+            {
+                Button b = c as Button;
+                if (b != null && b.BackColor != Theme.Tag)
+                {
+                    bool danger = b.ForeColor == Theme.Err;
+                    Lively(b, Theme.Panel2, danger ? Color.FromArgb(0xff, 0xe8, 0xe4) : Color.White);
+                }
+                else if (b != null)
+                {
+                    // жёлтая главная кнопка: при наведении светлеет
+                    b.FlatAppearance.BorderColor = Theme.TagEdge;
+                    b.MouseEnter += delegate { Anim.ColorTo(b, Color.FromArgb(0xff, 0xc4, 0x1a), 120); };
+                    b.MouseLeave += delegate { Anim.ColorTo(b, Theme.Tag, 160); };
+                }
+                Prettify(c);
+            }
         }
 
         void ApplyLayout()
@@ -434,7 +472,19 @@ namespace Provodnik
         void SetStatus(string text, Color color)
         {
             statusLabel.Text = text;
-            statusLabel.ForeColor = color;
+            // цвет наплывает, а не переключается рывком — глазу спокойнее
+            Color from = statusLabel.ForeColor;
+            Anim.Run(200, delegate (double t) { statusLabel.ForeColor = Anim.Mix(from, color, t); });
+        }
+
+        /// <summary>Кнопка мягко подсвечивается под мышью.</summary>
+        void Lively(Button b, Color normal, Color hover)
+        {
+            b.FlatStyle = FlatStyle.Flat;
+            b.FlatAppearance.BorderColor = Theme.Line;
+            b.BackColor = normal;
+            b.MouseEnter += delegate { Anim.ColorTo(b, hover, 120); };
+            b.MouseLeave += delegate { Anim.ColorTo(b, normal, 160); };
         }
 
         void RefreshFolder()
@@ -459,21 +509,49 @@ namespace Provodnik
             openButton.Enabled = orders.Count > 0;
         }
 
+        /// <summary>Заявка, под которую сейчас построен QR: открытая, иначе выбранная в списке.</summary>
+        string QrOrder()
+        {
+            if (currentOrder != null) return currentOrder;
+            return ordersBox.SelectedItem as string;
+        }
+
         void RefreshQr()
         {
-            string url = server.PhoneUrl();
+            string order = QrOrder();
+            string num = order != null ? Util.OrderToken(order) : null;
+            string url = server.PhoneUrl(num);
+            if (url == lastQrUrl) return;                 // ничего не изменилось — не мигаем
+            lastQrUrl = url;
+
             phoneUrl.Text = url;
             ipInput.Text = Config.LanIpOverride.Length > 0 ? Config.LanIpOverride : NetInfo.LanIp();
+            qrOrderLabel.Text = order != null
+                ? "код для заявки: " + order
+                : "заявка не выбрана — номер придётся ввести на телефоне";
+            qrOrderLabel.ForeColor = order != null ? Theme.Ink : Theme.InkSoft;
+
             try
             {
                 Image old = qrImage.Image;
                 qrImage.Image = Qr.ToBitmap(url, 184);
                 if (old != null) old.Dispose();
+                FlashQr();
             }
             catch (Exception e)
             {
                 SetStatus("QR не построился: " + e.Message, Theme.Err);
             }
+        }
+
+        /// <summary>Мигание рамкой — чтобы было видно, что код сменился под другую заявку.</summary>
+        void FlashQr()
+        {
+            Anim.Run(600, delegate (double t)
+            {
+                double k = Math.Sin(t * Math.PI);
+                qrFrame.BackColor = Anim.Mix(Theme.Tag, Theme.Ink, k * 0.5);
+            }, delegate { qrFrame.BackColor = Theme.Tag; });
         }
 
         void RefreshRecent()
@@ -502,7 +580,14 @@ namespace Provodnik
         {
             RefreshRecent();
             RefreshOrders();
-            if (currentOrder != null && item.Order == currentOrder) RefreshColumns();
+            if (currentOrder == null || item.Order != currentOrder) return;
+
+            // подпапки могло стать больше, чем колонок: телефон умеет прислать в новую
+            if (!columnNames.Contains(item.Cat)) BuildColumns();
+            RefreshColumns();
+            ColumnPanel col = FindColumn(item.Cat);
+            if (col != null) col.Flash();
+            SetStatus("С телефона: " + item.Cat + " / " + item.Name, Theme.Ok);
         }
 
         // ------------------------------------------------------------ заявки ----
@@ -557,8 +642,7 @@ namespace Provodnik
                 SetStatus("Выберите заявку из списка.", Theme.Err);
                 return;
             }
-            OpenOrder(name);
-            SetStatus("Открыта заявка: " + name, Theme.Ok);
+            OpenOrder(name);                    // статус ставит сама OpenOrder
         }
 
         void OpenOrder(string name)
@@ -569,6 +653,14 @@ namespace Provodnik
             try { Files.EnsureSubfolders(Files.OrderPath(name)); } catch (Exception) { }
             BuildColumns();
             RefreshColumns();
+            RefreshQr();                        // свой QR на каждую заявку
+
+            int total = 0;
+            foreach (ColumnPanel col in columns) total += Files.CountFiles(name, col.Category);
+            SetStatus(total > 0
+                ? string.Format("Открыта заявка: {0} — уже лежит файлов: {1}", name, total)
+                : "Открыта заявка: " + name + " — файлов пока нет",
+                Theme.Ok);
         }
 
         void CloseOrder()
@@ -577,6 +669,8 @@ namespace Provodnik
             currentBar.Visible = false;
             colsPanel.Controls.Clear();
             columns.Clear();
+            columnNames.Clear();
+            RefreshQr();
         }
 
         bool RequireBase()
@@ -593,7 +687,11 @@ namespace Provodnik
             colsPanel.SuspendLayout();
             colsPanel.Controls.Clear();
             columns.Clear();
-            foreach (string sf in Config.Subfolders)
+            columnNames.Clear();
+            // не только настроенные подпапки, но и те, что уже есть в заявке —
+            // иначе разложенные ранее файлы были бы не видны
+            columnNames.AddRange(Files.ColumnsFor(currentOrder));
+            foreach (string sf in columnNames)
             {
                 ColumnPanel col = new ColumnPanel(sf);
                 col.FilesDropped += OnFilesDropped;
@@ -603,6 +701,34 @@ namespace Provodnik
             }
             colsPanel.ResumeLayout();
             LayoutColumns();
+            AnimateColumnsIn();
+        }
+
+        /// <summary>Колонки выезжают снизу по очереди — видно, что заявка открылась.</summary>
+        void AnimateColumnsIn()
+        {
+            if (columns.Count == 0) return;
+            for (int i = 0; i < columns.Count; i++)
+            {
+                ColumnPanel col = columns[i];
+                int targetY = col.Top;
+                int shift = 26;
+                col.Top = targetY + shift;
+                int delay = i * 45;
+                Timer start = new Timer();
+                start.Interval = Math.Max(1, delay);
+                start.Tick += delegate (object s, EventArgs e)
+                {
+                    start.Stop();
+                    start.Dispose();
+                    if (col.IsDisposed) return;
+                    Anim.Run(260, delegate (double t)
+                    {
+                        if (!col.IsDisposed) col.Top = targetY + (int)(shift * (1 - t));
+                    });
+                };
+                start.Start();
+            }
         }
 
         void LayoutColumns()
@@ -623,9 +749,23 @@ namespace Provodnik
             if (currentOrder == null) return;
             foreach (ColumnPanel col in columns)
             {
-                try { col.SetEntries(Files.List(currentOrder, col.Category)); }
-                catch (Exception e) { SetStatus("Не удалось прочитать «" + col.Category + "»: " + e.Message, Theme.Err); }
+                try
+                {
+                    col.SetEntries(Files.List(currentOrder, col.Category),
+                                   Files.CountFiles(currentOrder, col.Category));
+                }
+                catch (Exception e)
+                {
+                    SetStatus("Не удалось прочитать «" + col.Category + "»: " + e.Message, Theme.Err);
+                }
             }
+        }
+
+        ColumnPanel FindColumn(string category)
+        {
+            foreach (ColumnPanel col in columns)
+                if (col.Category == category) return col;
+            return null;
         }
 
         void OnFilesDropped(string category, string[] paths)

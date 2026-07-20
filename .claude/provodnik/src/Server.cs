@@ -113,11 +113,16 @@ namespace Provodnik
             try { listener.Stop(); } catch (Exception) { }
         }
 
-        /// <summary>Ссылка, которую кодируем в QR.</summary>
-        public string PhoneUrl()
+        /// <summary>
+        /// Ссылка, которую кодируем в QR. Если задан номер заявки, телефон не будет
+        /// спрашивать его вообще — фото пойдут прямо в эту заявку.
+        /// </summary>
+        public string PhoneUrl(string orderNum)
         {
             string ip = Config.LanIpOverride.Length > 0 ? Config.LanIpOverride : NetInfo.LanIp();
-            return string.Format("http://{0}:{1}/m?k={2}", ip, Port, State.Token);
+            string url = string.Format("http://{0}:{1}/m?k={2}", ip, Port, State.Token);
+            if (!string.IsNullOrEmpty(orderNum)) url += "&num=" + Uri.EscapeDataString(orderNum);
+            return url;
         }
 
         void Loop()

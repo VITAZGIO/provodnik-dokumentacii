@@ -24,5 +24,6 @@ namespace Provodnik
         public static readonly Font MonoSmall = new Font("Consolas", 8.5f);
         public static readonly Font Head = new Font("Consolas", 8.5f, FontStyle.Bold);
         public static readonly Font TagFont = new Font("Consolas", 8.5f, FontStyle.Bold);
+        public static readonly Font Tiny = new Font("Consolas", 7.5f, FontStyle.Bold);
     }
 }
